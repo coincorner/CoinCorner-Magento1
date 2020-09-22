@@ -1,0 +1,50 @@
+<?php
+// I would extract all this into a seperate function since we use it again in PaymentController but it won't work unless everything is inline.
+$_order = new Mage_Sales_Model_Order();
+$orderId = Mage::getSingleton('checkout/session')->getLastRealOrderId();
+$_order->loadByIncrementId($orderId);
+$config = Mage::getStoreConfig('payment/coincorner');
+$nonce = (int)microtime(true);
+$site = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB);
+
+$default_params = array(
+    'InvoiceAmount' => $_order->getBaseGrandTotal(),
+    'OrderId' => $orderId,
+    'Nonce' => $nonce,
+    'APIKey' => $config['api_public'],
+    'InvoiceCurrency' => $config['invoice_currency'],
+    'SettleCurrency' => $config['settlement_currency'],
+    'Signature' => strtolower(hash_hmac('sha256', $nonce . $config['api_id'] . $config['api_public'] , $config['api_secret'])),
+    'NotificationURL' => $site . '/CoinCorner/payment/response',
+    'SuccessRedirectURL' => $site . 'CoinCorner/payment/response?OrderId=' . $orderId,
+    'FailRedirectURL' => $site . 'CoinCorner/payment/cancel'
+);
+
+$curl = curl_init();
+
+$curl_options = array(
+    CURLOPT_RETURNTRANSFER => 1, 
+    CURLOPT_URL => 'https://checkout.coincorner.com/api/CreateOrder',
+);
+
+curl_setopt($curl, CURLOPT_POST, 1);
+curl_setopt($curl, CURLOPT_HTTPHEADER, array());
+
+$headers[] = 'Content-Type: application/x-www-form-urlencoded';
+
+curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($default_params));
+
+curl_setopt_array($curl, $curl_options);
+
+$response = json_decode(curl_exec($curl), true);
+curl_close($curl);
+
+if (gettype($response) == 'string' && substr($response, 0, 40) == 'https://checkout.coincorner.com/Checkout') {
+    echo("<script>window.location.href = '$response';</script>");
+}
+else {
+    echo('Something went wrong. Failed to generate checkout payment.');
+    Mage::log($response);
+}
+?>

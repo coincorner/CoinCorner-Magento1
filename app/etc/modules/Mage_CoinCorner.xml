@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<config>
+  <modules>
+    <Mage_CoinCorner>
+      <active>true</active>
+      <codePool>community</codePool>
+      <depends>
+        <Mage_Payment />
+      </depends>
+    </Mage_CoinCorner>
+  </modules>
+</config>
